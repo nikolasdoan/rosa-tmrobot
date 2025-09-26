@@ -2,28 +2,6 @@
 
 This document explains all changes and steps to integrate a ROSA-based agent to control a TM robot in the `tm2_ros2-humble` workspace.
 
-### Prerequisites
-- TM workspace: `/home/asrlab/tm2_ros2-humble` (fresh clone or equivalent)
-- Model-specific TM MoveIt package (e.g., `tm5s_moveit_config`) present in the workspace
-- ROS 2 Humble installed
-- Python 3.10 with the following packages installed in your environment:
-  ```bash
-  pip install langchain rich pyinputplus python-dotenv
-  # If 'rosa' is not installed via pip, install from its source as documented by ROSA
-  # Example (adjust to your ROSA source):
-  # pip install -e /path/to/rosa
-  ```
-  Notes:
-  - The agent imports `rosa`, `langchain`, `rich`, `pyinputplus`, and `python-dotenv`.
-  - If your LLM backend needs credentials (e.g., `OPENAI_API_KEY`), create a `.env` file in your home or workspace root with the key, or export it in the shell.
-
-### High-level approach
-- Use TM’s `tmr_arm_controller` (JointTrajectoryController) for joint commands
-- Avoid custom controller switchers or external cartesian services
-- Keep agent Python tools and run them from source (no full rebuild needed)
-
----
-
 ## 1) Build and source the TM workspace
 
 ### 1.1 Get sources (TM + ROSA agent) into ONE workspace
@@ -224,5 +202,28 @@ Expected behavior:
 - If you want cartesian motion for TM through the agent, add a TM-compatible cartesian controller and expose:
   - A pose service (e.g., `move_to_pose`) and/or a pose topic
   - Then wire new tools in `scripts/tools/ur.py` and remove from blacklist
+ 
+## 10) What we have:
+
+- TM workspace: `/home/asrlab/tm2_ros2-humble` (fresh clone or equivalent)
+- Model-specific TM MoveIt package (e.g., `tm5s_moveit_config`) present in the workspace
+- ROS 2 Humble installed
+- Python 3.10 with the following packages installed in your environment:
+  ```bash
+  pip install langchain rich pyinputplus python-dotenv
+  # If 'rosa' is not installed via pip, install from its source as documented by ROSA
+  # Example (adjust to your ROSA source):
+  # pip install -e /path/to/rosa
+  ```
+  Notes:
+  - The agent imports `rosa`, `langchain`, `rich`, `pyinputplus`, and `python-dotenv`.
+  - If your LLM backend needs credentials (e.g., `OPENAI_API_KEY`), create a `.env` file in your home or workspace root with the key, or export it in the shell.
+
+### High-level approach
+- Use TM’s `tmr_arm_controller` (JointTrajectoryController) for joint commands
+- Avoid custom controller switchers or external cartesian services
+- Keep agent Python tools and run them from source (no full rebuild needed)
+
+---
 
 

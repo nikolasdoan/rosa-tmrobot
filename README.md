@@ -26,13 +26,6 @@ This document explains all changes and steps to integrate a ROSA-based agent to 
 
 ## 1) Build and source the TM workspace
 
-If this is a fresh clone, build once and source:
-```bash
-cd /home/asrlab/tm2_ros2-humble
-colcon build
-source install/setup.bash
-```
-
 ### 1.1 Get sources (TM + ROSA agent) into ONE workspace
 
 If you are assembling a new workspace from scratch, clone both upstreams:

@@ -33,6 +33,33 @@ colcon build
 source install/setup.bash
 ```
 
+### 1.1 Get sources (TM + ROSA agent) into ONE workspace
+
+If you are assembling a new workspace from scratch, clone both upstreams:
+
+```bash
+mkdir -p ~/tm2_ros2-humble/src
+cd ~/tm2_ros2-humble/src
+
+# TM Humble workspace
+git clone -b humble https://github.com/TechmanRobotInc/tm2_ros2.git tm2_ros2-humble
+
+# LLM agent (UR-origin) workspace content (we will use only the agent package)
+git clone https://github.com/cakh/llm-ur-control.git
+
+# Move the agent package into the TM workspace src if not already present
+mkdir -p tm2_ros2-humble/src/llm-ur-control
+rsync -a llm-ur-control/ tm2_ros2-humble/src/llm-ur-control/
+
+cd ~/tm2_ros2-humble
+colcon build
+source install/setup.bash
+```
+
+Notes:
+- We only use the `llm-ur-control/ur_agent` package from the agent repo, adapted for TM as documented below.
+- The package name remains `ur_agent` to avoid invasive renaming; functionality is TM-specific per the edits here.
+
 ## 2) Launch the TM stack (MoveIt + controllers)
 
 Pick your TM model and launch its MoveIt file. Example for TM5S:
@@ -98,6 +125,11 @@ File: `scripts/ur_agent.py`
   ```
 - Update examples and greeting to TM context.
 
+Also update import to the new tool module name:
+```python
+import tools.rosa_tm as ur_tools
+```
+
 ### 3.4 Update system prompts to TM
 File: `scripts/prompts.py`
 - Persona mentions TM (e.g., TM5S)
@@ -127,6 +159,8 @@ ros2 run ur_agent ur_agent.py
 Notes:
 - Do NOT launch `ur_agent/launch/agent.launch.py`; it starts services not used here (`controller_switcher.py`, `cartesian_motion_server.py`).
 - Ensure the TM MoveIt launch is already running so that `/tmr_arm_controller` is active.
+
+If you also keep a separate UR workspace on your machine, avoid sourcing it together with TM. If you must, always source the TM workspace last so the TM-adapted `ur_agent` takes precedence.
 
 ---
 
@@ -197,3 +231,5 @@ Expected behavior:
 - If you want cartesian motion for TM through the agent, add a TM-compatible cartesian controller and expose:
   - A pose service (e.g., `move_to_pose`) and/or a pose topic
   - Then wire new tools in `scripts/tools/ur.py` and remove from blacklist
+
+

@@ -1,6 +1,6 @@
 ## ROSA + TM Robot Integration (TM Workspace)
 
-This document explains all changes and steps to adapt the UR LLM agent to control a TM robot in the `tm2_ros2-humble` workspace.
+This document explains all changes and steps to integrate a ROSA-based agent to control a TM robot in the `tm2_ros2-humble` workspace.
 
 ### Prerequisites
 - TM workspace: `/home/asrlab/tm2_ros2-humble` (fresh clone or equivalent)
@@ -19,7 +19,7 @@ This document explains all changes and steps to adapt the UR LLM agent to contro
 
 ### High-level approach
 - Use TM’s `tmr_arm_controller` (JointTrajectoryController) for joint commands
-- Remove UR-only controller assumptions (scaled JTC, cartesian controller switcher)
+- Avoid custom controller switchers or external cartesian services
 - Keep agent Python tools and run them from source (no full rebuild needed)
 
 ---
@@ -69,29 +69,24 @@ ros2 action list | grep follow_joint_trajectory | cat
 All edits are in the TM workspace copy of the agent under:
 `/home/asrlab/tm2_ros2-humble/src/llm-ur-control/ur_agent`
 
-### 2.1 Update the joint command publisher and joint names
+### 3.1 Update the joint command publisher and joint names
 File: `scripts/tools/ur.py`
-- Change publisher topic to TM controller:
-  - From: `/scaled_joint_trajectory_controller/joint_trajectory`
-  - To: `/tmr_arm_controller/joint_trajectory`
-- Use TM joint names and ordering:
-  - From UR names: `shoulder_pan_joint ... wrist_3_joint`
-  - To TM names: `joint_1` .. `joint_6`
-- Stop rotating joint state array; use the message order as-is:
-  - From: `current_joint_states = [msg.position[-1]] + list(msg.position[:-1])`
-  - To: `current_joint_states = list(msg.position)`
+- Set publisher topic to `/tmr_arm_controller/joint_trajectory`
+- Use TM joint names and ordering: `joint_1` .. `joint_6`
+- Use the joint state message order as-is:
+  - `current_joint_states = list(msg.position)`
 
 Resulting behavior:
 - The agent publishes `trajectory_msgs/JointTrajectory` with `joint_1..joint_6` to `/tmr_arm_controller/joint_trajectory`.
 
-### 2.2 Disable UR-only tools (switcher + cartesian)
+### 3.2 Disable unused tools (switcher + cartesian)
 File: `scripts/tools/ur.py`
 - Stubbed to return a clear Not Supported message:
-  - `activate_controller_request` → Not supported (TM uses controller_manager; no custom switcher)
-  - `cartesian_motion_request` → Not supported (no TM cartesian service wired here)
-  - `get_current_pose` → Not supported (no TM cartesian pose topic wired here)
+  - `activate_controller_request` → Not supported (use `controller_manager`; no custom switcher)
+  - `cartesian_motion_request` → Not supported (no cartesian service wired here)
+  - `get_current_pose` → Not supported (no cartesian pose topic wired here)
 
-### 2.3 Blacklist UR-only tools at the agent layer
+### 3.3 Blacklist unused tools at the agent layer
 File: `scripts/ur_agent.py`
 - In `URAgent.__init__`: set
   ```python
@@ -103,9 +98,9 @@ File: `scripts/ur_agent.py`
   ```
 - Update examples and greeting to TM context.
 
-### 2.4 Update system prompts to TM
+### 3.4 Update system prompts to TM
 File: `scripts/prompts.py`
-- Persona mentions TM (e.g., TM5S) instead of UR5e
+- Persona mentions TM (e.g., TM5S)
 - Critical instructions:
   - Use `tmr_arm_controller` for joint motions
   - Joints listed as `joint_1..joint_6`
@@ -130,7 +125,7 @@ ros2 run ur_agent ur_agent.py
 ```
 
 Notes:
-- Do NOT launch `ur_agent/launch/agent.launch.py` for TM; it starts UR-only services (`controller_switcher.py`, `cartesian_motion_server.py`).
+- Do NOT launch `ur_agent/launch/agent.launch.py`; it starts services not used here (`controller_switcher.py`, `cartesian_motion_server.py`).
 - Ensure the TM MoveIt launch is already running so that `/tmr_arm_controller` is active.
 
 ---
@@ -166,12 +161,7 @@ Expected behavior:
 - LLM credentials or connectivity issues
   - If the agent fails to respond or stream LLM output, ensure your `.env` contains required keys (e.g., `OPENAI_API_KEY`) and your network allows access. Alternatively, configure `get_llm()` for a local/offline model.
 
-- Using both UR and TM workspaces
-  - If you need both overlays, always source TM last so its `ur_agent` overrides:
-    ```bash
-    source /home/asrlab/0915-ur5/install/setup.bash
-    source /home/asrlab/tm2_ros2-humble/install/setup.bash
-    ```
+ 
 
 ---
 
@@ -196,8 +186,9 @@ Expected behavior:
 
 ## 8) What we intentionally did NOT use
 
-- UR `scaled_joint_trajectory_controller` or UR custom cartesian controllers
-- `ur_agent/launch/agent.launch.py` (UR-only services)
+- Custom controller switchers
+- External cartesian controllers/services not wired in this repo
+- `ur_agent/launch/agent.launch.py` (not required here)
 
 ---
 
@@ -206,5 +197,3 @@ Expected behavior:
 - If you want cartesian motion for TM through the agent, add a TM-compatible cartesian controller and expose:
   - A pose service (e.g., `move_to_pose`) and/or a pose topic
   - Then wire new tools in `scripts/tools/ur.py` and remove from blacklist
-
-
